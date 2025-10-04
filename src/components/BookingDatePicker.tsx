@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BookingDatePickerProps {
   date: Date | undefined;
@@ -11,9 +13,25 @@ interface BookingDatePickerProps {
 }
 
 export const BookingDatePicker = ({ date, onDateChange }: BookingDatePickerProps) => {
-  const isSunday = (date: Date) => {
-    return date.getDay() === 0;
-  };
+  const [fullyBookedDates, setFullyBookedDates] = useState<Date[]>([]);
+
+  const isSunday = (date: Date) => date.getDay() === 0;
+
+  useEffect(() => {
+    const fetchFullyBookedDates = async () => {
+      const { data, error } = await supabase.rpc("get_fully_booked_dates");
+      console.log(data);
+      if (error) {
+        console.error("Error fetching fully booked dates:", error);
+        return;
+      }
+
+      const parsed = data.map((d) => new Date(d.booked_date));
+      setFullyBookedDates(parsed);
+    };
+
+    fetchFullyBookedDates();
+  }, []);
 
   return (
     <Popover>
@@ -34,10 +52,16 @@ export const BookingDatePicker = ({ date, onDateChange }: BookingDatePickerProps
           mode="single"
           selected={date}
           onSelect={onDateChange}
-          disabled={(date) => {
+          disabled={(currentDate) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            return date < today || isSunday(date);
+
+            const isPast = currentDate < today;
+            const isBooked = fullyBookedDates.some(
+              (d) => d.toDateString() === currentDate.toDateString()
+            );
+
+            return isPast || isSunday(currentDate) || isBooked;
           }}
           initialFocus
           className="pointer-events-auto"

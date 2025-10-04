@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Sparkles } from "lucide-react";
 import { z } from "zod";
+import emailjs from "@emailjs/browser";
 
 interface BookingFormProps {
   selectedDate: Date | undefined;
@@ -19,6 +20,9 @@ const bookingSchema = z.object({
   facebookName: z.string().trim().min(1, "Facebook name is required").max(100),
   address: z.string().trim().min(1, "Address is required").max(200),
   note: z.string().trim().max(500).optional(),
+  serviceType: z.enum(["Home Service", "Walk-in"], {
+    required_error: "Please select a service type",
+  }),
 });
 
 export const BookingForm = ({
@@ -30,6 +34,7 @@ export const BookingForm = ({
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serviceType, setServiceType] = useState<"Home Service" | "Walk-in" | "">("");
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +54,7 @@ export const BookingForm = ({
       facebookName,
       address,
       note,
+      serviceType,
     });
 
     if (!validation.success) {
@@ -90,9 +96,31 @@ export const BookingForm = ({
         address: validation.data.address,
         note: validation.data.note || null,
         status: "Booked",
+        service_type: validation.data.serviceType, // 👈 Add this
       });
 
       if (error) throw error;
+
+      // Send email notification using EmailJS
+      try {
+        await emailjs.send(
+          import.meta.env.VITE_EMAILJS_SERVICE_ID,
+          import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+          {
+            to_email: validation.data.facebookName,
+            booking_date: format(selectedDate, "PPP"),
+            booking_time: selectedSlot,
+            customer_name: validation.data.facebookName,
+            customer_address: validation.data.address,
+            customer_service: validation.data.serviceType,
+            customer_note: validation.data.note || "No special requests",
+          },
+          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+        );
+      } catch (emailError) {
+        console.error("Email sending failed:", emailError);
+        // Don't block the booking if email fails
+      }
 
       toast({
         title: "Booking confirmed! 💅",
@@ -146,6 +174,38 @@ export const BookingForm = ({
           className="h-12 bg-card focus:ring-primary"
         />
       </div>
+
+      <div className="space-y-2">
+        <Label className="text-base font-medium">Service Type</Label>
+        <div className="flex items-center gap-6">
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="serviceType"
+              value="Home Service"
+              checked={serviceType === "Home Service"}
+              onChange={(e) => setServiceType(e.target.value as "Home Service")}
+              className="w-4 h-4 text-primary focus:ring-primary"
+              required
+            />
+            <span>Home Service</span>
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="radio"
+              name="serviceType"
+              value="Walk-in"
+              checked={serviceType === "Walk-in"}
+              onChange={(e) => setServiceType(e.target.value as "Walk-in")}
+              className="w-4 h-4 text-primary focus:ring-primary"
+              required
+            />
+            <span>Walk-in</span>
+          </label>
+        </div>
+      </div>
+
 
       <div className="space-y-2">
         <Label htmlFor="note" className="text-base font-medium">

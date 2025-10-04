@@ -27,9 +27,9 @@ const Booking = () => {
               Wanderlust by Mae
             </h1>
           </div>
-          <p className="text-lg text-muted-foreground mt-2">
+          {/* <p className="text-lg text-muted-foreground mt-2">
             Book Your Nail Appointment and Choose your preferred date and time for beautiful nails
-          </p>
+          </p> */}
         </div>
 
         {/* Booking Form */}
